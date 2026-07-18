@@ -54,7 +54,7 @@ export function Dashboard({ account, chainNow = 0n, settlements, hiddenSettlemen
         <article><span>남은 예치금</span><strong>{points(refundable)} P</strong><small>아직 흐르지 않은 금액</small></article>
       </section>
       <section className="settlement-list">
-        <div className="section-heading"><div><p className="eyebrow">내 정산</p><h2>시간이 흐르는 계약</h2></div><span>{settlements.length}건</span></div>
+        <div className="section-heading"><h2>시간이 흐르는 계약</h2><span>{settlements.length}건</span></div>
         {settlements.length === 0 ? (
           <div className="empty-state"><strong>아직 연결된 정산이 없습니다.</strong><span>새 정산을 만들거나 참여 코드로 시작해 보세요.</span></div>
         ) : settlements.map((settlement) => {
