@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatUnits, type Address } from "viem";
 
-import { formatAccruedPoints, formatElapsed, formatProgress, secondsPerPoint } from "../lib/settlementClock";
+import { formatAccruedPoints, formatProgress } from "../lib/settlementClock";
 import type { SettlementView } from "../types";
 
 type DashboardProps = {
@@ -65,7 +65,7 @@ export function Dashboard({ account, chainNow = 0n, settlements, hiddenSettlemen
           return (
             <button className="settlement-row" key={settlement.id.toString()} onClick={() => onSelectSettlement(settlement)}>
               <span className="plan-icon">{settlement.terms.serviceName.slice(0, 1)}</span>
-              <span><strong>{settlement.terms.serviceName}</strong><small>{roleFor(settlement, account)} · {isFlowing ? `1P당 약 ${formatElapsed(secondsPerPoint(settlement.terms.amount, duration))}` : settlement.terms.cancelled ? "취소된 정산" : "참여 대기"}</small></span>
+              <span><strong>{settlement.terms.serviceName}</strong><small>{isFlowing ? roleFor(settlement, account) : settlement.terms.cancelled ? `${roleFor(settlement, account)} · 취소됨` : `${roleFor(settlement, account)} · 참여 대기`}</small></span>
               <span className="settlement-stat"><small>정산된 포인트</small><b>{isFlowing ? `${formatAccruedPoints(settlement.terms.amount, duration, elapsed)} P` : "—"}</b></span>
               <span className="settlement-stat"><small>진행률</small><b>{isFlowing ? `${formatProgress(progress)}%` : "—"}</b></span>
               <span aria-hidden="true">→</span>
