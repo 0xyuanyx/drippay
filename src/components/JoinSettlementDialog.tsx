@@ -6,12 +6,13 @@ import type { JoinPreview } from "../types";
 
 type JoinSettlementDialogProps = {
   busy?: boolean;
+  writeDisabled?: boolean;
   lookupSettlement: (code: string) => Promise<JoinPreview | null>;
   onClose: () => void;
   onJoin: (code: string, preview: JoinPreview) => void;
 };
 
-export function JoinSettlementDialog({ busy = false, lookupSettlement, onClose, onJoin }: JoinSettlementDialogProps) {
+export function JoinSettlementDialog({ busy = false, writeDisabled = false, lookupSettlement, onClose, onJoin }: JoinSettlementDialogProps) {
   const [code, setCode] = useState("");
   const [preview, setPreview] = useState<JoinPreview | null>(null);
   const [error, setError] = useState("");
@@ -52,7 +53,7 @@ export function JoinSettlementDialog({ busy = false, lookupSettlement, onClose, 
             <h3>{preview.terms.serviceName}</h3>
             <dl><div><dt>예치 금액</dt><dd>{Number(formatUnits(preview.terms.amount, 18)).toLocaleString()} P</dd></div><div><dt>정산 기간</dt><dd>{Number(preview.terms.endsAt) / 86400}일</dd></div></dl>
             <p className="muted">MetaMask에서 포인트 사용 승인 후 예치 거래를 한 번 더 확인합니다.</p>
-            <button className="button primary full" disabled={busy} onClick={() => onJoin(normalizeInviteCode(code), preview)}>{busy ? "처리 중…" : "승인하고 참여"}</button>
+            <button className="button primary full" disabled={busy || writeDisabled} onClick={() => onJoin(normalizeInviteCode(code), preview)}>{busy ? "처리 중…" : writeDisabled ? "네트워크 확인 필요" : "승인하고 참여"}</button>
           </div>
         )}
       </section>

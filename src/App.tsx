@@ -19,6 +19,16 @@ import { JoinSettlementDialog } from "./components/JoinSettlementDialog";
 import { SettlementDetail } from "./components/SettlementDetail";
 import { POINT_TOKEN, TIME_SETTLEMENT } from "./contracts";
 import { generateInviteCode, hashInviteCode, normalizeInviteCode } from "./lib/inviteCode";
+import {
+  HARDHAT_CHAIN_ID,
+  InsufficientDemoPointsError,
+  MissingLocalGasError,
+  WRONG_NETWORK_NOTICE,
+  WrongNetworkError,
+  listenForChainChanges,
+  readWalletChainId,
+  runSafeHardhatWrite,
+} from "./lib/hardhatNetwork";
 import { createLatestRequestGuard, type LatestRequestGuard } from "./lib/latestRequestGuard";
 import { useSettlementPolling } from "./lib/useSettlementPolling";
 import type { JoinPreview, ServicePlan, SettlementTerms, SettlementView } from "./types";
@@ -56,6 +66,7 @@ export default function App() {
   const [account, setAccount] = useState<Address>();
   const [balance, setBalance] = useState(0n);
   const [chainNow, setChainNow] = useState(0n);
+  const [walletChainId, setWalletChainId] = useState<number>();
   const [dialog, setDialog] = useState<Dialog>(null);
   const [settlements, setSettlements] = useState<SettlementView[]>([]);
   const [selectedId, setSelectedId] = useState<bigint>();
@@ -63,6 +74,7 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const accountRef = useRef<Address>();
+  const connectionActiveRef = useRef(false);
   const refreshGuardRef = useRef<LatestRequestGuard<Address>>();
 
   accountRef.current = account;
@@ -79,16 +91,30 @@ export default function App() {
   useEffect(() => {
     const provider = window.ethereum as MetaMaskProvider | undefined;
     const handleAccounts = (value: unknown) => {
+      if (!connectionActiveRef.current) return;
       const [nextAccount] = value as Address[];
+      if (!nextAccount) connectionActiveRef.current = false;
       accountRef.current = nextAccount;
       refreshGuardRef.current?.invalidate();
       setAccount(nextAccount);
       setSelectedId(undefined);
       setDialog(null);
     };
+    const stopChainListener = provider
+      ? listenForChainChanges(provider, (nextChainId) => {
+          setWalletChainId(nextChainId);
+          refreshGuardRef.current?.invalidate();
+          if (accountRef.current && nextChainId !== HARDHAT_CHAIN_ID) {
+            setNotice(WRONG_NETWORK_NOTICE);
+          } else if (nextChainId === HARDHAT_CHAIN_ID) {
+            setNotice("");
+          }
+        })
+      : () => undefined;
     provider?.on?.("accountsChanged", handleAccounts);
     return () => {
       provider?.removeListener?.("accountsChanged", handleAccounts);
+      stopChainListener();
       refreshGuardRef.current?.invalidate();
     };
   }, []);
@@ -138,50 +164,114 @@ export default function App() {
           params: [{ chainId: "0x7a69", chainName: "Hardhat Local", nativeCurrency: hardhat.nativeCurrency, rpcUrls: hardhat.rpcUrls.default.http }],
         });
       }
+      const currentChainId = await readWalletChainId(window.ethereum);
+      setWalletChainId(currentChainId);
+      if (currentChainId !== HARDHAT_CHAIN_ID) {
+        throw new WrongNetworkError(currentChainId);
+      }
+      await window.ethereum.request({
+        method: "wallet_requestPermissions",
+        params: [{ eth_accounts: {} }],
+      });
       const addresses = await window.ethereum.request({ method: "eth_requestAccounts" }) as Address[];
       if (addresses[0]) {
+        connectionActiveRef.current = true;
         accountRef.current = addresses[0];
         refreshGuardRef.current?.invalidate();
         setAccount(addresses[0]);
       }
-    } catch {
-      setNotice("지갑 연결이 취소되었거나 Hardhat 네트워크에 연결할 수 없습니다.");
+    } catch (error) {
+      setNotice(error instanceof WrongNetworkError ? error.message : "지갑 연결이 취소되었거나 Hardhat 네트워크에 연결할 수 없습니다.");
     }
   }
 
+  function disconnectWallet() {
+    connectionActiveRef.current = false;
+    accountRef.current = undefined;
+    refreshGuardRef.current?.invalidate();
+    setAccount(undefined);
+    setBalance(0n);
+    setChainNow(0n);
+    setWalletChainId(undefined);
+    setSettlements([]);
+    setSelectedId(undefined);
+    setDialog(null);
+    setCreatedInvite(undefined);
+    setBusy(false);
+    setNotice("");
+  }
+
+  function showTransactionError(error: unknown, fallback: string) {
+    if (error instanceof WrongNetworkError) {
+      setWalletChainId(error.chainId);
+      setNotice(error.message);
+      return;
+    }
+    if (error instanceof MissingLocalGasError || error instanceof InsufficientDemoPointsError) {
+      setNotice(error.message);
+      return;
+    }
+    setNotice(fallback);
+  }
+
+  function submitWalletWrite<T>(
+    provider: EIP1193Provider,
+    activeAccount: Address,
+    write: () => Promise<T>,
+    requiredPoints = 0n,
+  ) {
+    return runSafeHardhatWrite(
+      provider,
+      {
+        getGasBalance: () => publicClient.getBalance({ address: activeAccount }),
+        getPointBalance: requiredPoints > 0n
+          ? () => publicClient.readContract({ ...POINT_TOKEN, functionName: "balanceOf", args: [activeAccount] })
+          : undefined,
+        requiredPoints,
+      },
+      write,
+    );
+  }
+
   async function send(functionName: "withdraw" | "cancel", args: readonly [bigint]) {
-    if (!walletClient || !account) return;
+    const provider = window.ethereum;
+    if (!walletClient || !account || !provider) return;
     setBusy(true);
     setNotice("");
     try {
-      const hash = await walletClient.writeContract({ ...TIME_SETTLEMENT, functionName, args });
+      const hash = await submitWalletWrite(provider, account, () =>
+        walletClient.writeContract({ ...TIME_SETTLEMENT, functionName, args }),
+      );
       await publicClient.waitForTransactionReceipt({ hash });
       await refresh(account);
       setNotice(functionName === "withdraw" ? "받을 포인트를 출금했습니다." : "정산을 취소하고 잔액을 반환했습니다.");
-    } catch {
-      setNotice("거래가 완료되지 않았습니다. MetaMask 내용을 확인해 주세요.");
+    } catch (error) {
+      showTransactionError(error, "거래가 완료되지 않았습니다. MetaMask 내용을 확인해 주세요.");
     } finally {
       setBusy(false);
     }
   }
 
   async function createSettlement(plan: ServicePlan) {
-    if (!walletClient || !account) return;
+    const provider = window.ethereum;
+    if (!walletClient || !account || !provider) return;
     const inviteCode = generateInviteCode();
     setBusy(true);
     setNotice("");
     try {
-      const hash = await walletClient.writeContract({
-        ...TIME_SETTLEMENT,
-        functionName: "createSettlement",
-        args: [hashInviteCode(inviteCode), plan.name, parseUnits(String(plan.amount), 18), BigInt(plan.durationDays * 86400)],
-      });
+      const hash = await submitWalletWrite(provider, account, () =>
+        walletClient.writeContract({
+          ...TIME_SETTLEMENT,
+          functionName: "createSettlement",
+          args: [hashInviteCode(inviteCode), plan.name, parseUnits(String(plan.amount), 18), BigInt(plan.durationDays * 86400)],
+        }),
+      );
       await publicClient.waitForTransactionReceipt({ hash });
       setDialog(null);
       setCreatedInvite(inviteCode);
       await refresh(account);
-    } catch {
-      setNotice("정산 생성 거래가 완료되지 않았습니다.");
+    } catch (error) {
+      showTransactionError(error, "정산 생성 거래가 완료되지 않았습니다.");
     } finally {
       setBusy(false);
     }
@@ -195,20 +285,31 @@ export default function App() {
   }
 
   async function joinSettlement(code: string, preview: JoinPreview) {
-    if (!walletClient || !account) return;
+    const provider = window.ethereum;
+    if (!walletClient || !account || !provider) return;
     setBusy(true);
     setNotice("");
     try {
-      const approval = await walletClient.writeContract({ ...POINT_TOKEN, functionName: "approve", args: [TIME_SETTLEMENT.address, preview.terms.amount] });
+      const approval = await submitWalletWrite(
+        provider,
+        account,
+        () => walletClient.writeContract({ ...POINT_TOKEN, functionName: "approve", args: [TIME_SETTLEMENT.address, preview.terms.amount] }),
+        preview.terms.amount,
+      );
       await publicClient.waitForTransactionReceipt({ hash: approval });
-      const join = await walletClient.writeContract({ ...TIME_SETTLEMENT, functionName: "joinSettlement", args: [normalizeInviteCode(code)] });
+      const join = await submitWalletWrite(
+        provider,
+        account,
+        () => walletClient.writeContract({ ...TIME_SETTLEMENT, functionName: "joinSettlement", args: [normalizeInviteCode(code)] }),
+        preview.terms.amount,
+      );
       await publicClient.waitForTransactionReceipt({ hash: join });
       setDialog(null);
       await refresh(account);
       setSelectedId(preview.id);
       setNotice("포인트를 예치하고 정산에 참여했습니다.");
-    } catch {
-      setNotice("승인 또는 참여 거래가 완료되지 않았습니다.");
+    } catch (error) {
+      showTransactionError(error, "승인 또는 참여 거래가 완료되지 않았습니다.");
     } finally {
       setBusy(false);
     }
@@ -216,22 +317,24 @@ export default function App() {
 
   const selected = settlements.find((item) => item.id === selectedId);
   const balanceLabel = Math.floor(Number(formatUnits(balance, 18))).toLocaleString();
+  const writesAllowed = Boolean(account && walletChainId === HARDHAT_CHAIN_ID);
+  const networkReady = !account || writesAllowed;
 
   return (
-    <AppShell address={account} balance={balanceLabel} connected={Boolean(account)} networkLabel="Hardhat · 31337" onConnect={connectWallet}>
+    <AppShell address={account} balance={balanceLabel} connected={Boolean(account)} networkLabel={networkReady ? "Hardhat · 31337" : "다른 네트워크 · 거래 중지"} networkReady={networkReady} onConnect={connectWallet} onDisconnect={disconnectWallet}>
       <div className="page">
         {notice && <div className="notice" role="status">{notice}</div>}
         {!account ? (
           <section className="connect-panel"><p className="eyebrow">LOCAL MVP</p><h1>시간이 흐른 만큼만<br />정산하세요.</h1><p>MetaMask를 로컬 Hardhat 네트워크에 연결하면 데모 포인트 정산을 시작할 수 있습니다.</p><button className="button primary" onClick={connectWallet}>MetaMask 연결</button></section>
         ) : selected ? (
-          <SettlementDetail account={account} busy={busy} chainNow={chainNow} settlement={selected} onBack={() => setSelectedId(undefined)} onWithdraw={(id) => void send("withdraw", [id])} onCancel={(id) => void send("cancel", [id])} />
+          <SettlementDetail account={account} busy={busy} writeDisabled={!writesAllowed} chainNow={chainNow} settlement={selected} onBack={() => setSelectedId(undefined)} onWithdraw={(id) => void send("withdraw", [id])} onCancel={(id) => void send("cancel", [id])} />
         ) : (
           <><div className="hero-row"><div><p className="eyebrow">DASHBOARD</p><h1>안녕하세요.</h1><p>로컬 체인에 기록된 내 정산을 확인하세요.</p></div><button className="button primary" onClick={() => setDialog("choose")}>새 정산 만들기</button></div><Dashboard account={account} settlements={settlements} onSelectSettlement={(item) => setSelectedId(item.id)} /></>
         )}
       </div>
       {dialog === "choose" && <CreateSettlementDialog onClose={() => setDialog(null)} onChooseLeader={() => setDialog("leader")} onChooseMember={() => setDialog("join")} />}
-      {dialog === "leader" && <CreateSettlementDialog mode="leader" plans={SERVICE_PLANS} busy={busy} onClose={() => setDialog(null)} onChooseLeader={() => undefined} onChooseMember={() => undefined} onCreate={(plan) => void createSettlement(plan)} />}
-      {dialog === "join" && <JoinSettlementDialog busy={busy} lookupSettlement={lookupSettlement} onClose={() => setDialog(null)} onJoin={(code, preview) => void joinSettlement(code, preview)} />}
+      {dialog === "leader" && <CreateSettlementDialog mode="leader" plans={SERVICE_PLANS} busy={busy} writeDisabled={!writesAllowed} onClose={() => setDialog(null)} onChooseLeader={() => undefined} onChooseMember={() => undefined} onCreate={(plan) => void createSettlement(plan)} />}
+      {dialog === "join" && <JoinSettlementDialog busy={busy} writeDisabled={!writesAllowed} lookupSettlement={lookupSettlement} onClose={() => setDialog(null)} onJoin={(code, preview) => void joinSettlement(code, preview)} />}
       {createdInvite && <div className="dialog-backdrop" role="presentation"><section className="dialog invite-result" role="dialog" aria-modal="true" aria-labelledby="invite-title"><p className="eyebrow">정산 생성 완료</p><h2 id="invite-title">참여 코드는 한 번만 보여드려요.</h2><div className="invite-code">{createdInvite}</div><button className="button primary full" onClick={() => void navigator.clipboard.writeText(createdInvite)}>코드 복사</button><button className="text-button" onClick={() => setCreatedInvite(undefined)}>확인하고 닫기</button></section></div>}
     </AppShell>
   );

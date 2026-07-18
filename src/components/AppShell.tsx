@@ -5,7 +5,9 @@ type AppShellProps = {
   balance: string;
   connected: boolean;
   networkLabel: string;
+  networkReady?: boolean;
   onConnect: () => void;
+  onDisconnect?: () => void;
   children: ReactNode;
 };
 
@@ -18,7 +20,9 @@ export function AppShell({
   balance,
   connected,
   networkLabel,
+  networkReady = true,
   onConnect,
+  onDisconnect,
   children,
 }: AppShellProps) {
   return (
@@ -29,11 +33,14 @@ export function AppShell({
           <div><strong>DripPay</strong><small>Pay only as time flows.</small></div>
         </div>
         <div className="wallet-summary">
-          <span className="status-dot" aria-hidden="true" />
-          <span>{networkLabel}</span>
+          <span className={`status-dot${networkReady ? "" : " warning"}`} aria-hidden="true" />
+          <span className={networkReady ? "network-ready" : "network-warning"} role="status">{networkLabel}</span>
           <span>{balance} P</span>
           {connected ? (
-            <span className="address-chip">{shortenAddress(address)}</span>
+            <>
+              <span className="address-chip">{shortenAddress(address)}</span>
+              <button className="wallet-disconnect" onClick={onDisconnect}>연결 해제</button>
+            </>
           ) : (
             <button className="button compact" onClick={onConnect}>MetaMask 연결</button>
           )}

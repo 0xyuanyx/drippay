@@ -22,7 +22,11 @@ button { cursor: pointer; }
 .wallet-summary { display: flex; align-items: center; gap: 12px; font-size: 13px; color: #52645e; }
 .wallet-summary > span:not(.status-dot) { padding-left: 12px; border-left: 1px solid #dfe7e3; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #36a269; box-shadow: 0 0 0 4px #e5f5eb; }
+.status-dot.warning { background: #c34a43; box-shadow: 0 0 0 4px #fbe8e6; }
+.network-warning { color: #a93631; font-weight: 750; }
 .address-chip { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: #003c33; }
+.wallet-disconnect { padding: 6px 0; border: 0; background: transparent; color: #6b7b76; font-size: 12px; font-weight: 700; }
+.wallet-disconnect:hover { color: #a93631; }
 main { flex: 1; }
 .page { width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 58px 0 80px; }
 footer { padding: 22px 24px; color: #7b8984; text-align: center; font-size: 12px; border-top: 1px solid #dfe7e3; background: #fff; }
@@ -70,6 +74,7 @@ h2 { margin: 5px 0 0; font-size: 26px; letter-spacing: -.03em; }
 .choice-card span { color: #71817c; font-size: 13px; line-height: 1.5; }
 .plan-list { margin-top: 24px; display: grid; gap: 10px; }
 .plan-row { padding: 14px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 14px; border: 1px solid #d8e2de; border-radius: 14px; background: white; text-align: left; }
+.plan-row:disabled { opacity: .45; cursor: not-allowed; }
 .plan-row > span:nth-child(2) { display: flex; flex-direction: column; gap: 4px; }
 .plan-row small { color: #788781; }
 form { margin-top: 28px; }

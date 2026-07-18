@@ -4,6 +4,7 @@ type CreateSettlementDialogProps = {
   mode?: "choose" | "leader";
   plans?: readonly ServicePlan[];
   busy?: boolean;
+  writeDisabled?: boolean;
   onClose: () => void;
   onChooseLeader: () => void;
   onChooseMember: () => void;
@@ -14,6 +15,7 @@ export function CreateSettlementDialog({
   mode = "choose",
   plans = [],
   busy = false,
+  writeDisabled = false,
   onClose,
   onChooseLeader,
   onChooseMember,
@@ -44,7 +46,7 @@ export function CreateSettlementDialog({
             <p className="muted">생성 후 금액과 기간은 바꿀 수 없습니다.</p>
             <div className="plan-list">
               {plans.map((plan) => (
-                <button key={plan.id} className="plan-row" disabled={busy} onClick={() => onCreate?.(plan)}>
+                <button key={plan.id} className="plan-row" disabled={busy || writeDisabled} onClick={() => onCreate?.(plan)}>
                   <span className="plan-icon">{plan.iconLabel}</span>
                   <span><strong>{plan.name}</strong><small>{plan.durationDays}일 정산</small></span>
                   <b>{plan.amount.toLocaleString()} P</b>

@@ -5,6 +5,7 @@ import type { SettlementView } from "../types";
 type SettlementDetailProps = {
   account: Address;
   busy?: boolean;
+  writeDisabled?: boolean;
   chainNow: bigint;
   settlement: SettlementView;
   onBack: () => void;
@@ -14,7 +15,7 @@ type SettlementDetailProps = {
 
 const points = (value: bigint) => Math.floor(Number(formatUnits(value, 18))).toLocaleString();
 
-export function SettlementDetail({ account, busy = false, chainNow, settlement, onBack, onWithdraw, onCancel }: SettlementDetailProps) {
+export function SettlementDetail({ account, busy = false, writeDisabled = false, chainNow, settlement, onBack, onWithdraw, onCancel }: SettlementDetailProps) {
   const { terms } = settlement;
   const duration = Math.max(Number(terms.endsAt - terms.startedAt), 1);
   const progress = terms.joined ? Math.min(100, Math.max(0, (Number(chainNow - terms.startedAt) / duration) * 100)) : 0;
@@ -32,8 +33,8 @@ export function SettlementDetail({ account, busy = false, chainNow, settlement, 
         <article><span>받을 돈</span><strong>{points(settlement.withdrawable)} P</strong></article>
         <article><span>남은 예치금</span><strong>{points(settlement.refundable)} P</strong></article>
       </section>
-      {!terms.cancelled && isLeader && terms.joined && <button className="button primary" disabled={busy || settlement.withdrawable === 0n} onClick={() => onWithdraw(settlement.id)}>받을 돈 출금</button>}
-      {!terms.cancelled && isMember && <button className="button danger" disabled={busy} onClick={() => onCancel(settlement.id)}>정산 취소 및 잔액 반환</button>}
+      {!terms.cancelled && isLeader && terms.joined && <button className="button primary" disabled={busy || writeDisabled || settlement.withdrawable === 0n} onClick={() => onWithdraw(settlement.id)}>받을 돈 출금</button>}
+      {!terms.cancelled && isMember && <button className="button danger" disabled={busy || writeDisabled} onClick={() => onCancel(settlement.id)}>정산 취소 및 잔액 반환</button>}
     </section>
   );
 }
