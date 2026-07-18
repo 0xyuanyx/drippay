@@ -17,6 +17,10 @@ export default defineConfig({
       type: "edr-simulated",
       allowBlocksWithSameTimestamp: true,
     },
+    node: {
+      type: "edr-simulated",
+      allowBlocksWithSameTimestamp: true,
+    },
     localhost: {
       type: "http",
       url: "http://127.0.0.1:8545",
