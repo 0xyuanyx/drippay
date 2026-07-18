@@ -101,6 +101,7 @@ dd { margin: 0; color: #003c33; font-weight: 750; }
 .progress-track span { display: block; height: 100%; border-radius: inherit; background: #0f5d49; }
 .progress-copy { margin: 10px 0 28px; color: #788781; font-size: 13px; text-align: right; }
 .detail .metric-grid { margin-bottom: 24px; }
+.detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 
 @media (max-width: 720px) {
   .topbar { height: auto; min-height: 72px; padding: 14px 20px; align-items: flex-start; }
@@ -116,4 +117,6 @@ dd { margin: 0; color: #003c33; font-weight: 750; }
   .dialog { padding: 28px 22px; }
   .settlement-row { grid-template-columns: auto 1fr auto; }
   .settlement-row > b { display: none; }
+  .detail-actions { align-items: stretch; flex-direction: column; }
+  .detail-actions .button { width: 100%; }
 }

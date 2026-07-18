@@ -33,8 +33,12 @@ export function SettlementDetail({ account, busy = false, writeDisabled = false,
         <article><span>받을 돈</span><strong>{points(settlement.withdrawable)} P</strong></article>
         <article><span>남은 예치금</span><strong>{points(settlement.refundable)} P</strong></article>
       </section>
-      {!terms.cancelled && isLeader && terms.joined && <button className="button primary" disabled={busy || writeDisabled || settlement.withdrawable === 0n} onClick={() => onWithdraw(settlement.id)}>받을 돈 출금</button>}
-      {!terms.cancelled && isMember && <button className="button danger" disabled={busy || writeDisabled} onClick={() => onCancel(settlement.id)}>정산 취소 및 잔액 반환</button>}
+      {!terms.cancelled && (isLeader || isMember) && (
+        <div className="detail-actions">
+          {isLeader && terms.joined && <button className="button primary" disabled={busy || writeDisabled || settlement.withdrawable === 0n} onClick={() => onWithdraw(settlement.id)}>받을 돈 출금</button>}
+          {isMember && <button className="button danger" disabled={busy || writeDisabled} onClick={() => onCancel(settlement.id)}>정산 취소 및 잔액 반환</button>}
+        </div>
+      )}
     </section>
   );
 }
