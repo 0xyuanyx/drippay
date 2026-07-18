@@ -1,50 +1,99 @@
-# ERC-20 SubStream
+# DripPay
 
-ERC-20 SubStream is a prototype settlement protocol for small recurring
-subscription payments. Instead of transferring prepaid funds as one lump sum,
-the payer deposits ERC-20 tokens into a contract and the payee earns them
-continuously over time.
+> **Pay only as time flows.**
 
-## Problem
+DripPay는 선불 포인트를 스마트컨트랙트에 보관하고, 시간이 흐른 만큼만 파티장에게 정산하는 로컬 ERC-20 MVP입니다. 파티원은 아직 사용하지 않은 포인트를 취소 시 돌려받고, 파티장은 이미 지난 기간의 포인트만 받을 수 있습니다.
 
-Shared subscription groups create three recurring risks:
+이 프로젝트는 공동구독 계정 제공 서비스가 아닙니다. OTT 계정, 비밀번호, 접근 권한, 공식 제휴를 제공하거나 검증하지 않습니다. DripPay가 다루는 것은 **당사자가 합의한 이용 기간의 포인트 정산 규칙**입니다.
 
-- the group owner can take prepaid funds and stop providing access
-- a member can keep using the account without paying on time
-- empty seats can leave the owner paying for unused capacity
+## 핵심 데모
 
-The common issue is that payment moves in large chunks, so one side must trust
-the other before receiving the matching service or money.
+30일·10,000P 정산에서 15일이 지나면 다음이 성립합니다.
 
-## Approach
+| 항목 | 결과 |
+| --- | ---: |
+| 파티장이 받을 돈 | 5,000P |
+| 파티원이 취소 시 돌려받을 금액 | 5,000P |
+| 아직 DripPay가 보관 중인 금액 | 10,000P |
 
-SubStream treats payment as a time-based flow:
+## 실행
 
-- a member deposits ERC-20 tokens for a fixed duration
-- the contract calculates the earned amount from elapsed time
-- the owner can withdraw only the amount already earned
-- the member can cancel and recover the unearned balance
+사전 조건: Node.js 20 이상, MetaMask.
 
-This does not prove off-chain service delivery. It only automates settlement
-rules and limits the size of prepaid loss.
+```bash
+npm install
+```
 
-## Core Contract Ideas
+터미널 1에서 로컬 체인을 시작합니다.
 
-- ERC-20 `approve` and `transferFrom` for deposits
-- time-based settlement instead of per-second transactions
-- `withdraw` for earned funds
-- `cancel` for final settlement and refund
-- waitlist and cancellation penalty logic for empty-seat risk
+```bash
+npm run node
+```
 
-## Demo Scenario
+터미널 2에서 컨트랙트를 배포하고 프런트엔드 주소를 갱신합니다.
 
-1. A member deposits 10,000 tokens for a 30-day stream.
-2. The test chain advances by 15 days.
-3. The contract reports 5,000 tokens earned and 5,000 refundable.
-4. The owner withdraws the earned tokens.
-5. A waitlisted member replaces the canceling member without a penalty.
+```bash
+npm run deploy:local
+```
 
-## Scope
+발표용 진행 중 정산 3개를 넣으려면 이어서 실행합니다.
 
-This project focuses on ERC-20 based settlement logic. It does not solve account
-access verification, password sharing enforcement, or platform policy issues.
+```bash
+npm run seed:demo
+```
+
+터미널 3에서 웹을 엽니다.
+
+```bash
+npm run dev
+```
+
+DripPay는 보통 [http://127.0.0.1:5173/](http://127.0.0.1:5173/)에서 열립니다. `localhost:5173`은 다른 로컬 프로젝트와 충돌할 수 있으므로 `127.0.0.1` 주소를 권장합니다.
+
+## MetaMask 로컬 네트워크
+
+앱의 `MetaMask 연결`을 누르면 아래 네트워크 전환을 요청합니다.
+
+| 항목 | 값 |
+| --- | --- |
+| 이름 | Hardhat Local |
+| 체인 ID | `31337` |
+| RPC | `http://127.0.0.1:8545` |
+| 통화 | ETH (로컬 테스트용) |
+
+`npm run node` 출력의 Account #0 또는 #1 private key를 MetaMask의 **계정 가져오기**에 넣으면 로컬 테스트 ETH와 데모 포인트를 사용할 수 있습니다. 이 키는 로컬 Hardhat 전용입니다. 실제 자산이 있는 지갑이나 네트워크에 사용하면 안 됩니다.
+
+## 시연 순서
+
+1. Account #0으로 연결합니다.
+2. `npm run seed:demo`을 실행했다면 파티장·파티원·겸임 역할의 진행 중 정산 3개가 보입니다.
+3. 각 행에서 누적 정산 포인트와 진행률을 확인합니다.
+4. 상세에서 파티장으로 `받을 돈 출금`, 파티원으로 `정산 취소 및 잔액 반환`을 실행합니다.
+5. 취소된 계약은 블록체인에서 삭제되지 않지만 `목록에서 숨기기`로 홈에서 감출 수 있고, 홈의 `숨긴 정산 N건 보기`에서 복원할 수 있습니다.
+
+새 정산을 직접 만들 때는 `새 정산 만들기` → `파티장으로 시작` → 고정 플랜 선택 → 참여 코드 복사 순서입니다. 파티원은 같은 메뉴에서 코드를 입력한 뒤 `approve`와 예치를 진행합니다.
+
+## 검증 명령
+
+```bash
+npm run compile
+npm run test:contracts
+npm run test:web
+npm run build
+```
+
+## 문서
+
+- [제품 기획](docs/PRODUCT.md)
+- [구조와 정산 규칙](docs/ARCHITECTURE.md)
+- [대시보드 설계](docs/DASHBOARD.md)
+- [5분 발표 대본과 예상 질문](docs/PRESENTATION.md)
+- [시각 디자인 시스템](.calm-design/DESIGN.md)
+
+## MVP 범위와 한계
+
+- 정산 하나는 파티장 1명, 파티원 1명, 포인트 예치 1회로 제한합니다.
+- 서비스별 금액과 기간은 고정 플랜입니다. 사용자 커스텀 가격은 지원하지 않습니다.
+- 스마트컨트랙트는 시간을 스스로 깨워 송금하지 않습니다. 경과분은 자동 계산되지만 파티장이 `받을 돈 출금` 트랜잭션을 실행해야 지갑으로 이동합니다.
+- `MockSubscriptionPoint`의 발행은 로컬 데모를 위해 제한하지 않았습니다. 실제 토큰이 아닙니다.
+- 로컬 Hardhat 체인을 재시작하면 배포·시드 데이터를 다시 만들어야 합니다.
