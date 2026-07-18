@@ -29,7 +29,7 @@ export function SettlementDetail({ account, busy = false, settlement, onBack, on
       <p className="progress-copy">전체 기간의 {progress.toFixed(1)}% 경과</p>
       <section className="metric-grid">
         <article><span>컨트랙트에 묶인 돈</span><strong>{points(terms.joined && !terms.cancelled ? terms.amount - terms.withdrawn : 0n)} P</strong></article>
-        <article><span>받을 돈</span><strong>{points(settlement.earned)} P</strong></article>
+        <article><span>받을 돈</span><strong>{points(settlement.withdrawable)} P</strong></article>
         <article><span>남은 예치금</span><strong>{points(settlement.refundable)} P</strong></article>
       </section>
       {!terms.cancelled && isLeader && terms.joined && <button className="button primary" disabled={busy || settlement.withdrawable === 0n} onClick={() => onWithdraw(settlement.id)}>받을 돈 출금</button>}

@@ -1,8 +1,9 @@
-import { formatUnits } from "viem";
+import { formatUnits, type Address } from "viem";
 
 import type { SettlementView } from "../types";
 
 type DashboardProps = {
+  account?: Address;
   settlements: SettlementView[];
   onSelectSettlement: (settlement: SettlementView) => void;
 };
@@ -11,16 +12,16 @@ function points(value: bigint): string {
   return Math.floor(Number(formatUnits(value, 18))).toLocaleString();
 }
 
-export function Dashboard({ settlements, onSelectSettlement }: DashboardProps) {
+export function Dashboard({ account, settlements, onSelectSettlement }: DashboardProps) {
   const locked = settlements.reduce((sum, item) => sum + (item.terms.joined && !item.terms.cancelled ? item.terms.amount - item.terms.withdrawn : 0n), 0n);
-  const earned = settlements.reduce((sum, item) => sum + item.earned, 0n);
-  const refundable = settlements.reduce((sum, item) => sum + item.refundable, 0n);
+  const withdrawable = settlements.reduce((sum, item) => sum + (account && item.terms.payee.toLowerCase() === account.toLowerCase() ? item.withdrawable : 0n), 0n);
+  const refundable = settlements.reduce((sum, item) => sum + (account && item.terms.payer.toLowerCase() === account.toLowerCase() ? item.refundable : 0n), 0n);
 
   return (
     <>
       <section className="metric-grid" aria-label="정산 요약">
         <article><span>컨트랙트에 묶인 돈</span><strong>{points(locked)} P</strong><small>스마트 컨트랙트 보관</small></article>
-        <article><span>받을 돈</span><strong>{points(earned)} P</strong><small>현재까지 흐른 금액</small></article>
+        <article><span>받을 돈</span><strong>{points(withdrawable)} P</strong><small>지금 인출 가능한 금액</small></article>
         <article><span>남은 예치금</span><strong>{points(refundable)} P</strong><small>아직 흐르지 않은 금액</small></article>
       </section>
       <section className="settlement-list">

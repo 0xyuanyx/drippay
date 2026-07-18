@@ -201,7 +201,7 @@ export default function App() {
         ) : selected ? (
           <SettlementDetail account={account} busy={busy} settlement={selected} onBack={() => setSelectedId(undefined)} onWithdraw={(id) => void send("withdraw", [id])} onCancel={(id) => void send("cancel", [id])} />
         ) : (
-          <><div className="hero-row"><div><p className="eyebrow">DASHBOARD</p><h1>안녕하세요.</h1><p>로컬 체인에 기록된 내 정산을 확인하세요.</p></div><button className="button primary" onClick={() => setDialog("choose")}>새 정산 만들기</button></div><Dashboard settlements={settlements} onSelectSettlement={(item) => setSelectedId(item.id)} /></>
+          <><div className="hero-row"><div><p className="eyebrow">DASHBOARD</p><h1>안녕하세요.</h1><p>로컬 체인에 기록된 내 정산을 확인하세요.</p></div><button className="button primary" onClick={() => setDialog("choose")}>새 정산 만들기</button></div><Dashboard account={account} settlements={settlements} onSelectSettlement={(item) => setSelectedId(item.id)} /></>
         )}
       </div>
       {dialog === "choose" && <CreateSettlementDialog onClose={() => setDialog(null)} onChooseLeader={() => setDialog("leader")} onChooseMember={() => setDialog("join")} />}
