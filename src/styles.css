@@ -92,6 +92,7 @@ dd { margin: 0; color: #003c33; font-weight: 750; }
 .invite-result { text-align: center; }
 .invite-code { margin: 28px 0 12px; padding: 22px; border: 1px dashed #6f9588; border-radius: 14px; background: #f0f7f4; color: #003c33; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 32px; font-weight: 850; letter-spacing: .16em; }
 .invite-result .text-button { display: block; margin: 12px auto 0; }
+.copy-feedback { margin: 10px 0 0; color: #0f5d49; font-size: 13px; }
 .detail > .text-button { margin-bottom: 24px; }
 .detail-heading { display: flex; justify-content: space-between; align-items: start; margin-bottom: 32px; }
 .detail-heading h1 { font-size: 42px; }

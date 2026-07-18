@@ -10,6 +10,7 @@ import { CreateSettlementDialog } from "./CreateSettlementDialog";
 import { AppShell } from "./AppShell";
 import { Dashboard } from "./Dashboard";
 import { JoinSettlementDialog } from "./JoinSettlementDialog";
+import { InviteResultDialog } from "./InviteResultDialog";
 import { SettlementDetail } from "./SettlementDetail";
 import type { SettlementView } from "../types";
 
@@ -54,6 +55,24 @@ describe("settlement UI flows", () => {
 
     await user.click(screen.getByRole("button", { name: "연결 해제" }));
     expect(onDisconnect).toHaveBeenCalledOnce();
+  });
+
+  it("copies an invite code without closing or disconnecting the local session", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    render(<InviteResultDialog inviteCode="DRIP2026" onClose={onClose} />);
+    await user.click(screen.getByRole("button", { name: "코드 복사" }));
+
+    expect(writeText).toHaveBeenCalledWith("DRIP2026");
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("복사했어요.")).toBeInTheDocument();
   });
 
   it("offers leader and member paths from the create dialog", () => {

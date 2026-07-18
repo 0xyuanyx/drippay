@@ -16,6 +16,7 @@ import { AppShell } from "./components/AppShell";
 import { CreateSettlementDialog } from "./components/CreateSettlementDialog";
 import { Dashboard } from "./components/Dashboard";
 import { JoinSettlementDialog } from "./components/JoinSettlementDialog";
+import { InviteResultDialog } from "./components/InviteResultDialog";
 import { SettlementDetail } from "./components/SettlementDetail";
 import { POINT_TOKEN, TIME_SETTLEMENT } from "./contracts";
 import { generateInviteCode, hashInviteCode, normalizeInviteCode } from "./lib/inviteCode";
@@ -31,6 +32,7 @@ import {
 } from "./lib/hardhatNetwork";
 import { createLatestRequestGuard, type LatestRequestGuard } from "./lib/latestRequestGuard";
 import { useSettlementPolling } from "./lib/useSettlementPolling";
+import { clearWalletSession, markWalletSession, restoreWalletSession } from "./lib/walletSession";
 import type { JoinPreview, ServicePlan, SettlementTerms, SettlementView } from "./types";
 
 declare global {
@@ -93,7 +95,10 @@ export default function App() {
     const handleAccounts = (value: unknown) => {
       if (!connectionActiveRef.current) return;
       const [nextAccount] = value as Address[];
-      if (!nextAccount) connectionActiveRef.current = false;
+      if (!nextAccount) {
+        connectionActiveRef.current = false;
+        clearWalletSession(window.sessionStorage);
+      }
       accountRef.current = nextAccount;
       refreshGuardRef.current?.invalidate();
       setAccount(nextAccount);
@@ -116,6 +121,23 @@ export default function App() {
       provider?.removeListener?.("accountsChanged", handleAccounts);
       stopChainListener();
       refreshGuardRef.current?.invalidate();
+    };
+  }, []);
+
+  useEffect(() => {
+    const provider = window.ethereum;
+    if (!provider) return;
+    let active = true;
+    void restoreWalletSession(provider, window.sessionStorage).then((session) => {
+      if (!active || !session) return;
+      connectionActiveRef.current = true;
+      accountRef.current = session.account;
+      refreshGuardRef.current?.invalidate();
+      setWalletChainId(session.chainId);
+      setAccount(session.account);
+    });
+    return () => {
+      active = false;
     };
   }, []);
 
@@ -178,6 +200,7 @@ export default function App() {
         connectionActiveRef.current = true;
         accountRef.current = addresses[0];
         refreshGuardRef.current?.invalidate();
+        markWalletSession(window.sessionStorage);
         setAccount(addresses[0]);
       }
     } catch (error) {
@@ -187,6 +210,7 @@ export default function App() {
 
   function disconnectWallet() {
     connectionActiveRef.current = false;
+    clearWalletSession(window.sessionStorage);
     accountRef.current = undefined;
     refreshGuardRef.current?.invalidate();
     setAccount(undefined);
@@ -335,7 +359,7 @@ export default function App() {
       {dialog === "choose" && <CreateSettlementDialog onClose={() => setDialog(null)} onChooseLeader={() => setDialog("leader")} onChooseMember={() => setDialog("join")} />}
       {dialog === "leader" && <CreateSettlementDialog mode="leader" plans={SERVICE_PLANS} busy={busy} writeDisabled={!writesAllowed} onClose={() => setDialog(null)} onChooseLeader={() => undefined} onChooseMember={() => undefined} onCreate={(plan) => void createSettlement(plan)} />}
       {dialog === "join" && <JoinSettlementDialog busy={busy} writeDisabled={!writesAllowed} lookupSettlement={lookupSettlement} onClose={() => setDialog(null)} onJoin={(code, preview) => void joinSettlement(code, preview)} />}
-      {createdInvite && <div className="dialog-backdrop" role="presentation"><section className="dialog invite-result" role="dialog" aria-modal="true" aria-labelledby="invite-title"><p className="eyebrow">정산 생성 완료</p><h2 id="invite-title">참여 코드는 한 번만 보여드려요.</h2><div className="invite-code">{createdInvite}</div><button className="button primary full" onClick={() => void navigator.clipboard.writeText(createdInvite)}>코드 복사</button><button className="text-button" onClick={() => setCreatedInvite(undefined)}>확인하고 닫기</button></section></div>}
+      {createdInvite && <InviteResultDialog inviteCode={createdInvite} onClose={() => setCreatedInvite(undefined)} />}
     </AppShell>
   );
 }
