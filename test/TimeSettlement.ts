@@ -102,6 +102,16 @@ describe("TimeSettlement", function () {
     );
   });
 
+  it("permanently consumes the invite hash after the member joins", async function () {
+    const { leader, settlement } = await joinSettlement();
+
+    await expect(
+      settlement
+        .connect(leader)
+        .createSettlement(INVITE_HASH, "Disney+", AMOUNT, DURATION),
+    ).to.be.revertedWithCustomError(settlement, "InviteCodeAlreadyExists");
+  });
+
   it("reports 5,000 earned, withdrawable, and refundable points halfway through", async function () {
     const { settlement, settlementId, startedAt } = await joinSettlement();
     await networkHelpers.time.increaseTo(

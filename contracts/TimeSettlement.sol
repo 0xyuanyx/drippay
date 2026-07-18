@@ -59,6 +59,7 @@ contract TimeSettlement {
     uint256 public nextSettlementId = 1;
 
     mapping(uint256 settlementId => Settlement settlement) private settlements;
+    mapping(bytes32 inviteHash => bool created) private inviteHashWasCreated;
     mapping(bytes32 inviteHash => uint256 settlementId)
         public getSettlementIdByInviteHash;
 
@@ -79,7 +80,7 @@ contract TimeSettlement {
             amount == 0 ||
             duration == 0
         ) revert InvalidSettlementTerms();
-        if (getSettlementIdByInviteHash[inviteHash] != 0) {
+        if (inviteHashWasCreated[inviteHash]) {
             revert InviteCodeAlreadyExists();
         }
 
@@ -96,6 +97,7 @@ contract TimeSettlement {
             cancelled: false,
             serviceName: serviceName
         });
+        inviteHashWasCreated[inviteHash] = true;
         getSettlementIdByInviteHash[inviteHash] = settlementId;
 
         emit SettlementCreated(
