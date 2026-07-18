@@ -30,6 +30,7 @@ import {
   readWalletChainId,
   runSafeHardhatWrite,
 } from "./lib/hardhatNetwork";
+import { hiddenSettlementStorageKey, splitSettlementVisibility } from "./lib/hiddenSettlements";
 import { createLatestRequestGuard, type LatestRequestGuard } from "./lib/latestRequestGuard";
 import { useSettlementPolling } from "./lib/useSettlementPolling";
 import { clearWalletSession, markWalletSession, restoreWalletSession } from "./lib/walletSession";
@@ -73,14 +74,7 @@ export default function App() {
   const [settlements, setSettlements] = useState<SettlementView[]>([]);
   const [selectedId, setSelectedId] = useState<bigint>();
   const [createdInvite, setCreatedInvite] = useState<string>();
-  const [hiddenSettlementIds, setHiddenSettlementIds] = useState<string[]>(() => {
-    try {
-      const saved = window.localStorage.getItem("drippay.hidden-settlements");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [hiddenSettlementIds, setHiddenSettlementIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const accountRef = useRef<Address>();
@@ -97,6 +91,9 @@ export default function App() {
     if (!window.ethereum || !account) return null;
     return createWalletClient({ account, chain: hardhat, transport: custom(window.ethereum) });
   }, [account]);
+  const hiddenStorageKey = account
+    ? hiddenSettlementStorageKey(HARDHAT_CHAIN_ID, TIME_SETTLEMENT.address, account)
+    : undefined;
 
   useEffect(() => {
     const provider = window.ethereum as MetaMaskProvider | undefined;
@@ -131,6 +128,19 @@ export default function App() {
       refreshGuardRef.current?.invalidate();
     };
   }, []);
+
+  useEffect(() => {
+    if (!hiddenStorageKey) {
+      setHiddenSettlementIds([]);
+      return;
+    }
+    try {
+      const saved = window.localStorage.getItem(hiddenStorageKey);
+      setHiddenSettlementIds(saved ? JSON.parse(saved) : []);
+    } catch {
+      setHiddenSettlementIds([]);
+    }
+  }, [hiddenStorageKey]);
 
   useEffect(() => {
     const provider = window.ethereum;
@@ -348,11 +358,12 @@ export default function App() {
   }
 
   function hideSettlement(id: bigint) {
+    if (!hiddenStorageKey || !settlements.find((settlement) => settlement.id === id)?.terms.cancelled) return;
     const key = id.toString();
     setHiddenSettlementIds((current) => {
       if (current.includes(key)) return current;
       const next = [...current, key];
-      window.localStorage.setItem("drippay.hidden-settlements", JSON.stringify(next));
+      window.localStorage.setItem(hiddenStorageKey, JSON.stringify(next));
       return next;
     });
     setSelectedId(undefined);
@@ -360,17 +371,18 @@ export default function App() {
   }
 
   function restoreSettlement(id: bigint) {
+    if (!hiddenStorageKey) return;
     const key = id.toString();
     setHiddenSettlementIds((current) => {
       const next = current.filter((item) => item !== key);
-      window.localStorage.setItem("drippay.hidden-settlements", JSON.stringify(next));
+      window.localStorage.setItem(hiddenStorageKey, JSON.stringify(next));
       return next;
     });
     setNotice("정산을 대시보드 목록에 다시 표시했습니다.");
   }
 
   const selected = settlements.find((item) => item.id === selectedId);
-  const visibleSettlements = settlements.filter((item) => !hiddenSettlementIds.includes(item.id.toString()));
+  const { visible: visibleSettlements, hidden: hiddenSettlements } = splitSettlementVisibility(settlements, hiddenSettlementIds);
   const balanceLabel = Math.floor(Number(formatUnits(balance, 18))).toLocaleString();
   const writesAllowed = Boolean(account && walletChainId === HARDHAT_CHAIN_ID);
   const networkReady = !account || writesAllowed;
@@ -384,7 +396,7 @@ export default function App() {
         ) : selected ? (
           <SettlementDetail account={account} busy={busy} writeDisabled={!writesAllowed} chainNow={chainNow} settlement={selected} onBack={() => setSelectedId(undefined)} onWithdraw={(id) => void send("withdraw", [id])} onCancel={(id) => void send("cancel", [id])} onHide={hideSettlement} />
         ) : (
-          <><div className="hero-row"><div><h1>안녕하세요.</h1><p>로컬 체인에 기록된 내 정산을 확인하세요.</p></div><button className="button primary" onClick={() => setDialog("choose")}>새 정산 만들기</button></div><Dashboard account={account} chainNow={chainNow} settlements={visibleSettlements} hiddenSettlements={settlements.filter((item) => hiddenSettlementIds.includes(item.id.toString()))} onRestoreSettlement={restoreSettlement} onSelectSettlement={(item) => setSelectedId(item.id)} /></>
+          <><div className="hero-row"><div><h1>안녕하세요.</h1><p>로컬 체인에 기록된 내 정산을 확인하세요.</p></div><button className="button primary" onClick={() => setDialog("choose")}>새 정산 만들기</button></div><Dashboard account={account} chainNow={chainNow} settlements={visibleSettlements} hiddenSettlements={hiddenSettlements} onRestoreSettlement={restoreSettlement} onSelectSettlement={(item) => setSelectedId(item.id)} /></>
         )}
       </div>
       {dialog === "choose" && <CreateSettlementDialog onClose={() => setDialog(null)} onChooseLeader={() => setDialog("leader")} onChooseMember={() => setDialog("join")} />}

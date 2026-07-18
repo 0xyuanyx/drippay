@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatAccruedPoints, formatElapsed, formatPointsPerSecond, formatProgress, secondsPerPoint } from "./settlementClock";
+import { clampElapsed, formatAccruedPoints, formatElapsed, formatPointsPerSecond, formatProgress, secondsPerPoint } from "./settlementClock";
 
 describe("settlement clock copy", () => {
   it("keeps seconds visible from the first moment", () => {
@@ -18,5 +18,10 @@ describe("settlement clock copy", () => {
     const thirtyDays = 30 * 86_400;
     expect(formatAccruedPoints(musicAmount, thirtyDays, 5n)).toBe("0.0154");
     expect(secondsPerPoint(musicAmount, thirtyDays)).toBe(324n);
+  });
+
+  it("caps an ended settlement at its full duration", () => {
+    expect(clampElapsed(100n, 200n, 250n)).toBe(100n);
+    expect(formatAccruedPoints(10_000n * 10n ** 18n, 100, 150n)).toBe("10,000");
   });
 });

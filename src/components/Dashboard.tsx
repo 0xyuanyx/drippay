@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatUnits, type Address } from "viem";
 
-import { formatAccruedPoints, formatProgress } from "../lib/settlementClock";
+import { clampElapsed, formatAccruedPoints, formatProgress } from "../lib/settlementClock";
 import type { SettlementView } from "../types";
 
 type DashboardProps = {
@@ -43,7 +43,7 @@ export function Dashboard({ account, chainNow = 0n, settlements, hiddenSettlemen
   const refundable = settlements.reduce((sum, item) => sum + (account && item.terms.payer.toLowerCase() === account.toLowerCase() ? item.refundable : 0n), 0n);
   const flowRate = settlements.reduce((sum, item) => {
     const duration = Number(item.terms.endsAt - item.terms.startedAt);
-    return sum + (item.terms.joined && !item.terms.cancelled && duration > 0 ? Number(item.terms.amount / 10n ** 18n) / duration : 0);
+    return sum + (item.terms.joined && !item.terms.cancelled && duration > 0 && displayNow < item.terms.endsAt ? Number(item.terms.amount / 10n ** 18n) / duration : 0);
   }, 0);
 
   return (
@@ -59,9 +59,9 @@ export function Dashboard({ account, chainNow = 0n, settlements, hiddenSettlemen
           <div className="empty-state"><strong>아직 연결된 정산이 없습니다.</strong><span>새 정산을 만들거나 참여 코드로 시작해 보세요.</span></div>
         ) : settlements.map((settlement) => {
           const duration = Math.max(Number(settlement.terms.endsAt - settlement.terms.startedAt), 1);
-          const elapsed = settlement.terms.joined ? displayNow - settlement.terms.startedAt : 0n;
+          const elapsed = settlement.terms.joined ? clampElapsed(settlement.terms.startedAt, settlement.terms.endsAt, displayNow) : 0n;
           const progress = settlement.terms.joined ? Math.min(100, Math.max(0, (Number(elapsed) / duration) * 100)) : 0;
-          const isFlowing = settlement.terms.joined && !settlement.terms.cancelled;
+          const isFlowing = settlement.terms.joined && !settlement.terms.cancelled && displayNow < settlement.terms.endsAt;
           return (
             <button className="settlement-row" key={settlement.id.toString()} onClick={() => onSelectSettlement(settlement)}>
               <span className="plan-icon">{settlement.terms.serviceName.slice(0, 1)}</span>

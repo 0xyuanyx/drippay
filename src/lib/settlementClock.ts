@@ -17,6 +17,11 @@ export function formatProgress(progress: number): string {
   return progress < 1 ? progress.toFixed(4) : progress.toFixed(1);
 }
 
+export function clampElapsed(startedAt: bigint, endsAt: bigint, observedNow: bigint): bigint {
+  const effectiveNow = observedNow < startedAt ? startedAt : observedNow > endsAt ? endsAt : observedNow;
+  return effectiveNow - startedAt;
+}
+
 export function formatPointsPerSecond(amount: bigint, durationSeconds: number): string {
   if (durationSeconds <= 0) return "0";
   const pointAmount = Number(amount / 10n ** 18n);
@@ -28,7 +33,9 @@ export function formatPointsPerSecond(amount: bigint, durationSeconds: number): 
 
 export function formatAccruedPoints(amount: bigint, durationSeconds: number, elapsedSeconds: bigint): string {
   if (durationSeconds <= 0) return "0";
-  const accrued = amount * (elapsedSeconds < 0n ? 0n : elapsedSeconds) / BigInt(durationSeconds);
+  const duration = BigInt(durationSeconds);
+  const safeElapsed = elapsedSeconds < 0n ? 0n : elapsedSeconds > duration ? duration : elapsedSeconds;
+  const accrued = amount * safeElapsed / duration;
   const pointAmount = Number(accrued) / 1e18;
   if (pointAmount >= 1) return pointAmount.toLocaleString(undefined, { maximumFractionDigits: 2 });
   return pointAmount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
