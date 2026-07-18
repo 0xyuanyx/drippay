@@ -19,6 +19,7 @@ import { JoinSettlementDialog } from "./components/JoinSettlementDialog";
 import { SettlementDetail } from "./components/SettlementDetail";
 import { POINT_TOKEN, TIME_SETTLEMENT } from "./contracts";
 import { generateInviteCode, hashInviteCode, normalizeInviteCode } from "./lib/inviteCode";
+import { useSettlementPolling } from "./lib/useSettlementPolling";
 import type { JoinPreview, ServicePlan, SettlementTerms, SettlementView } from "./types";
 
 declare global {
@@ -53,6 +54,7 @@ const sameAddress = (left: Address, right: Address) => left.toLowerCase() === ri
 export default function App() {
   const [account, setAccount] = useState<Address>();
   const [balance, setBalance] = useState(0n);
+  const [chainNow, setChainNow] = useState(0n);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [settlements, setSettlements] = useState<SettlementView[]>([]);
   const [selectedId, setSelectedId] = useState<bigint>();
@@ -79,11 +81,13 @@ export default function App() {
 
   const refresh = useCallback(async (activeAccount: Address) => {
     try {
-      const [pointBalance, nextId] = await Promise.all([
+      const [pointBalance, nextId, latestBlock] = await Promise.all([
         publicClient.readContract({ ...POINT_TOKEN, functionName: "balanceOf", args: [activeAccount] }),
         publicClient.readContract({ ...TIME_SETTLEMENT, functionName: "nextSettlementId" }),
+        publicClient.getBlock({ blockTag: "latest" }),
       ]);
       setBalance(pointBalance);
+      setChainNow(latestBlock.timestamp);
 
       const reads = Array.from({ length: Number(nextId - 1n) }, (_, index) => BigInt(index + 1)).map(async (id) => {
         const terms = await publicClient.readContract({ ...TIME_SETTLEMENT, functionName: "getSettlement", args: [id] }) as SettlementTerms;
@@ -97,9 +101,7 @@ export default function App() {
     }
   }, []);
 
-  useEffect(() => {
-    if (account) void refresh(account);
-  }, [account, refresh]);
+  useSettlementPolling({ account, selectedId, refresh });
 
   async function connectWallet() {
     if (!window.ethereum) {
@@ -199,7 +201,7 @@ export default function App() {
         {!account ? (
           <section className="connect-panel"><p className="eyebrow">LOCAL MVP</p><h1>시간이 흐른 만큼만<br />정산하세요.</h1><p>MetaMask를 로컬 Hardhat 네트워크에 연결하면 데모 포인트 정산을 시작할 수 있습니다.</p><button className="button primary" onClick={connectWallet}>MetaMask 연결</button></section>
         ) : selected ? (
-          <SettlementDetail account={account} busy={busy} settlement={selected} onBack={() => setSelectedId(undefined)} onWithdraw={(id) => void send("withdraw", [id])} onCancel={(id) => void send("cancel", [id])} />
+          <SettlementDetail account={account} busy={busy} chainNow={chainNow} settlement={selected} onBack={() => setSelectedId(undefined)} onWithdraw={(id) => void send("withdraw", [id])} onCancel={(id) => void send("cancel", [id])} />
         ) : (
           <><div className="hero-row"><div><p className="eyebrow">DASHBOARD</p><h1>안녕하세요.</h1><p>로컬 체인에 기록된 내 정산을 확인하세요.</p></div><button className="button primary" onClick={() => setDialog("choose")}>새 정산 만들기</button></div><Dashboard account={account} settlements={settlements} onSelectSettlement={(item) => setSelectedId(item.id)} /></>
         )}

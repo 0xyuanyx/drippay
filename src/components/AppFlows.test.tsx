@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { CreateSettlementDialog } from "./CreateSettlementDialog";
 import { Dashboard } from "./Dashboard";
 import { JoinSettlementDialog } from "./JoinSettlementDialog";
+import { SettlementDetail } from "./SettlementDetail";
 
 afterEach(cleanup);
 
@@ -87,5 +88,38 @@ describe("settlement UI flows", () => {
 
     const card = screen.getByText("받을 돈").closest("article");
     expect(within(card!).getByText("1,000 P")).toBeInTheDocument();
+  });
+
+  it("calculates settlement progress from the chain timestamp", () => {
+    const leader = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+    render(
+      <SettlementDetail
+        account={leader}
+        chainNow={200n}
+        settlement={{
+          id: 1n,
+          terms: {
+            inviteHash: `0x${"1".repeat(64)}`,
+            payee: leader,
+            payer: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+            amount: 10_000n * 10n ** 18n,
+            startedAt: 100n,
+            endsAt: 300n,
+            withdrawn: 0n,
+            joined: true,
+            cancelled: false,
+            serviceName: "스트리밍 스탠다드",
+          },
+          earned: 5_000n * 10n ** 18n,
+          withdrawable: 5_000n * 10n ** 18n,
+          refundable: 5_000n * 10n ** 18n,
+        }}
+        onBack={vi.fn()}
+        onWithdraw={vi.fn()}
+        onCancel={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("전체 기간의 50.0% 경과")).toBeInTheDocument();
   });
 });

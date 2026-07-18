@@ -5,6 +5,7 @@ import type { SettlementView } from "../types";
 type SettlementDetailProps = {
   account: Address;
   busy?: boolean;
+  chainNow: bigint;
   settlement: SettlementView;
   onBack: () => void;
   onWithdraw: (id: bigint) => void;
@@ -13,11 +14,10 @@ type SettlementDetailProps = {
 
 const points = (value: bigint) => Math.floor(Number(formatUnits(value, 18))).toLocaleString();
 
-export function SettlementDetail({ account, busy = false, settlement, onBack, onWithdraw, onCancel }: SettlementDetailProps) {
+export function SettlementDetail({ account, busy = false, chainNow, settlement, onBack, onWithdraw, onCancel }: SettlementDetailProps) {
   const { terms } = settlement;
-  const now = Math.floor(Date.now() / 1000);
   const duration = Math.max(Number(terms.endsAt - terms.startedAt), 1);
-  const progress = terms.joined ? Math.min(100, Math.max(0, ((now - Number(terms.startedAt)) / duration) * 100)) : 0;
+  const progress = terms.joined ? Math.min(100, Math.max(0, (Number(chainNow - terms.startedAt) / duration) * 100)) : 0;
   const isLeader = getAddress(account) === getAddress(terms.payee);
   const isMember = terms.payer !== zeroAddress && getAddress(account) === getAddress(terms.payer);
 
