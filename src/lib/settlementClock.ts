@@ -25,3 +25,17 @@ export function formatPointsPerSecond(amount: bigint, durationSeconds: number): 
     minimumFractionDigits: 4,
   });
 }
+
+export function formatAccruedPoints(amount: bigint, durationSeconds: number, elapsedSeconds: bigint): string {
+  if (durationSeconds <= 0) return "0";
+  const accrued = amount * (elapsedSeconds < 0n ? 0n : elapsedSeconds) / BigInt(durationSeconds);
+  const pointAmount = Number(accrued) / 1e18;
+  if (pointAmount >= 1) return pointAmount.toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return pointAmount.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+}
+
+export function secondsPerPoint(amount: bigint, durationSeconds: number): bigint {
+  const pointAmount = amount / 10n ** 18n;
+  if (pointAmount <= 0n) return 0n;
+  return BigInt(Math.round(durationSeconds / Number(pointAmount)));
+}

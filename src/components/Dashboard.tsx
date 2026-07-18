@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { formatUnits, type Address } from "viem";
 
-import { formatElapsed, formatPointsPerSecond, formatProgress } from "../lib/settlementClock";
+import { formatAccruedPoints, formatElapsed, formatProgress, secondsPerPoint } from "../lib/settlementClock";
 import type { SettlementView } from "../types";
 
 type DashboardProps = {
@@ -54,8 +54,8 @@ export function Dashboard({ account, chainNow = 0n, settlements, onSelectSettlem
           return (
             <button className="settlement-row" key={settlement.id.toString()} onClick={() => onSelectSettlement(settlement)}>
               <span className="plan-icon">{settlement.terms.serviceName.slice(0, 1)}</span>
-              <span><strong>{settlement.terms.serviceName}</strong><small>정산 #{settlement.id.toString()} · {settlement.terms.cancelled ? "취소됨" : settlement.terms.joined ? `${formatProgress(progress)}% · ${formatElapsed(elapsed)} 경과` : "참여 대기"}</small></span>
-              <b><small>{points(settlement.terms.amount)} P</small>{isFlowing ? `${formatPointsPerSecond(settlement.terms.amount, duration)} P/초` : "정산 종료"}</b><span aria-hidden="true">→</span>
+              <span><strong>{settlement.terms.serviceName}</strong><small>정산 #{settlement.id.toString()} · {settlement.terms.cancelled ? "취소됨" : settlement.terms.joined ? `${formatAccruedPoints(settlement.terms.amount, duration, elapsed)} P 정산됨 · ${formatProgress(progress)}%` : "참여 대기"}</small></span>
+              <b><small>{points(settlement.terms.amount)} P</small>{isFlowing ? `1P당 약 ${formatElapsed(secondsPerPoint(settlement.terms.amount, duration))}` : "정산 종료"}</b><span aria-hidden="true">→</span>
             </button>
           );
         })}
