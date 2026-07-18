@@ -5,14 +5,32 @@
   "type": "module",
   "scripts": {
     "compile": "hardhat compile",
-    "test:contracts": "hardhat test test/TimeSettlement.ts"
+    "test:contracts": "hardhat test test/TimeSettlement.ts",
+    "test:web": "vitest run",
+    "build": "tsc --noEmit && vite build",
+    "dev": "vite",
+    "node": "hardhat node",
+    "deploy:local": "hardhat run scripts/deploy.ts --network localhost"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "viem": "^2.38.6"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox-mocha-ethers": "^3.0.7",
     "@openzeppelin/contracts": "^5.6.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/react": "^18.3.27",
+    "@types/react-dom": "^18.3.7",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.10.1",
     "hardhat": "^3.10.0",
-    "typescript": "^5.9.3"
+    "jsdom": "^27.2.0",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.5",
+    "vitest": "^4.1.0"
   }
 }
