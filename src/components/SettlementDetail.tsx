@@ -36,11 +36,12 @@ export function SettlementDetail({ account, busy = false, writeDisabled = false,
   const progress = terms.joined ? Math.min(100, Math.max(0, (Number(elapsedSeconds) / duration) * 100)) : 0;
   const isLeader = getAddress(account) === getAddress(terms.payee);
   const isMember = terms.payer !== zeroAddress && getAddress(account) === getAddress(terms.payer);
+  const roleLabel = isLeader && isMember ? "파티장 · 파티원" : isLeader ? "파티장" : "파티원";
 
   return (
     <section className="detail">
       <button className="text-button" onClick={onBack}>← 대시보드</button>
-      <div className="detail-heading"><div><p className="eyebrow">정산 #{settlement.id.toString()}</p><h1>{terms.serviceName}</h1></div><div className="detail-heading-actions"><span className="badge">{terms.cancelled ? "취소됨" : terms.joined ? "진행 중" : "참여 대기"}</span>{terms.cancelled && onHide && <button className="button compact archive-button" onClick={() => onHide(settlement.id)}>목록에서 숨기기</button>}</div></div>
+      <div className="detail-heading"><div><p className="eyebrow">{roleLabel}</p><h1>{terms.serviceName}</h1></div><div className="detail-heading-actions"><span className="badge">{terms.cancelled ? "취소됨" : terms.joined ? "진행 중" : "참여 대기"}</span>{terms.cancelled && onHide && <button className="button compact archive-button" onClick={() => onHide(settlement.id)}>목록에서 숨기기</button>}</div></div>
       <div className={`progress-track${terms.joined && !terms.cancelled ? " flowing" : ""}`}><span style={{ width: `${progress}%` }} /></div>
       <p className="progress-copy">전체 기간의 {formatProgress(progress)}% 경과 · {formatElapsed(elapsedSeconds)}째 흐르는 중</p>
       {terms.joined && !terms.cancelled && <p className="drip-rate">매초 약 {formatPointsPerSecond(terms.amount, duration)} P가 정산되고 있어요.</p>}
