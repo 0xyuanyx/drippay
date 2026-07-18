@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   createPublicClient,
   createWalletClient,
@@ -19,6 +19,7 @@ import { JoinSettlementDialog } from "./components/JoinSettlementDialog";
 import { SettlementDetail } from "./components/SettlementDetail";
 import { POINT_TOKEN, TIME_SETTLEMENT } from "./contracts";
 import { generateInviteCode, hashInviteCode, normalizeInviteCode } from "./lib/inviteCode";
+import { createLatestRequestGuard, type LatestRequestGuard } from "./lib/latestRequestGuard";
 import { useSettlementPolling } from "./lib/useSettlementPolling";
 import type { JoinPreview, ServicePlan, SettlementTerms, SettlementView } from "./types";
 
@@ -61,6 +62,14 @@ export default function App() {
   const [createdInvite, setCreatedInvite] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const accountRef = useRef<Address>();
+  const refreshGuardRef = useRef<LatestRequestGuard<Address>>();
+
+  accountRef.current = account;
+  refreshGuardRef.current ??= createLatestRequestGuard(
+    () => accountRef.current,
+    sameAddress,
+  );
 
   const walletClient = useMemo(() => {
     if (!window.ethereum || !account) return null;
@@ -71,33 +80,43 @@ export default function App() {
     const provider = window.ethereum as MetaMaskProvider | undefined;
     const handleAccounts = (value: unknown) => {
       const [nextAccount] = value as Address[];
+      accountRef.current = nextAccount;
+      refreshGuardRef.current?.invalidate();
       setAccount(nextAccount);
       setSelectedId(undefined);
       setDialog(null);
     };
     provider?.on?.("accountsChanged", handleAccounts);
-    return () => provider?.removeListener?.("accountsChanged", handleAccounts);
+    return () => {
+      provider?.removeListener?.("accountsChanged", handleAccounts);
+      refreshGuardRef.current?.invalidate();
+    };
   }, []);
 
   const refresh = useCallback(async (activeAccount: Address) => {
+    const request = refreshGuardRef.current!.begin(activeAccount);
     try {
       const [pointBalance, nextId, latestBlock] = await Promise.all([
         publicClient.readContract({ ...POINT_TOKEN, functionName: "balanceOf", args: [activeAccount] }),
         publicClient.readContract({ ...TIME_SETTLEMENT, functionName: "nextSettlementId" }),
         publicClient.getBlock({ blockTag: "latest" }),
       ]);
-      setBalance(pointBalance);
-      setChainNow(latestBlock.timestamp);
-
       const reads = Array.from({ length: Number(nextId - 1n) }, (_, index) => BigInt(index + 1)).map(async (id) => {
         const terms = await publicClient.readContract({ ...TIME_SETTLEMENT, functionName: "getSettlement", args: [id] }) as SettlementTerms;
         if (!sameAddress(terms.payee, activeAccount) && (terms.payer === zeroAddress || !sameAddress(terms.payer, activeAccount))) return null;
         const [earned, withdrawable, refundable] = await publicClient.readContract({ ...TIME_SETTLEMENT, functionName: "getFinancials", args: [id] });
         return { id, terms, earned, withdrawable, refundable } satisfies SettlementView;
       });
-      setSettlements((await Promise.all(reads)).filter((item): item is SettlementView => item !== null));
+      const nextSettlements = (await Promise.all(reads)).filter((item): item is SettlementView => item !== null);
+      if (!request.isCurrent()) return;
+
+      setBalance(pointBalance);
+      setChainNow(latestBlock.timestamp);
+      setSettlements(nextSettlements);
     } catch {
-      setNotice("로컬 노드와 배포 상태를 확인해 주세요.");
+      if (request.isCurrent()) {
+        setNotice("로컬 노드와 배포 상태를 확인해 주세요.");
+      }
     }
   }, []);
 
@@ -120,7 +139,11 @@ export default function App() {
         });
       }
       const addresses = await window.ethereum.request({ method: "eth_requestAccounts" }) as Address[];
-      if (addresses[0]) setAccount(addresses[0]);
+      if (addresses[0]) {
+        accountRef.current = addresses[0];
+        refreshGuardRef.current?.invalidate();
+        setAccount(addresses[0]);
+      }
     } catch {
       setNotice("지갑 연결이 취소되었거나 Hardhat 네트워크에 연결할 수 없습니다.");
     }
