@@ -8,15 +8,26 @@ type DashboardProps = {
   account?: Address;
   chainNow?: bigint;
   settlements: SettlementView[];
+  hiddenSettlements?: SettlementView[];
   onSelectSettlement: (settlement: SettlementView) => void;
+  onRestoreSettlement?: (id: bigint) => void;
 };
 
 function points(value: bigint): string {
   return Math.floor(Number(formatUnits(value, 18))).toLocaleString();
 }
 
-export function Dashboard({ account, chainNow = 0n, settlements, onSelectSettlement }: DashboardProps) {
+function roleFor(settlement: SettlementView, account?: Address): string {
+  if (!account) return "내 정산";
+  const isLeader = settlement.terms.payee.toLowerCase() === account.toLowerCase();
+  const isMember = settlement.terms.payer.toLowerCase() === account.toLowerCase();
+  if (isLeader && isMember) return "파티장 · 파티원";
+  return isLeader ? "파티장" : "파티원";
+}
+
+export function Dashboard({ account, chainNow = 0n, settlements, hiddenSettlements = [], onSelectSettlement, onRestoreSettlement }: DashboardProps) {
   const [wallNow, setWallNow] = useState(() => Date.now());
+  const [showHidden, setShowHidden] = useState(false);
   const lastChainSyncRef = useRef({ chainNow, wallNow: Date.now() });
   if (lastChainSyncRef.current.chainNow !== chainNow) {
     lastChainSyncRef.current = { chainNow, wallNow: Date.now() };
@@ -54,11 +65,25 @@ export function Dashboard({ account, chainNow = 0n, settlements, onSelectSettlem
           return (
             <button className="settlement-row" key={settlement.id.toString()} onClick={() => onSelectSettlement(settlement)}>
               <span className="plan-icon">{settlement.terms.serviceName.slice(0, 1)}</span>
-              <span><strong>{settlement.terms.serviceName}</strong><small>정산 #{settlement.id.toString()} · {settlement.terms.cancelled ? "취소됨" : settlement.terms.joined ? `${formatAccruedPoints(settlement.terms.amount, duration, elapsed)} P 정산됨 · ${formatProgress(progress)}%` : "참여 대기"}</small></span>
-              <b><small>{points(settlement.terms.amount)} P</small>{isFlowing ? `1P당 약 ${formatElapsed(secondsPerPoint(settlement.terms.amount, duration))}` : "정산 종료"}</b><span aria-hidden="true">→</span>
+              <span><strong>{settlement.terms.serviceName}</strong><small>{roleFor(settlement, account)} · {isFlowing ? `1P당 약 ${formatElapsed(secondsPerPoint(settlement.terms.amount, duration))}` : settlement.terms.cancelled ? "취소된 정산" : "참여 대기"}</small></span>
+              <span className="settlement-stat"><small>정산된 포인트</small><b>{isFlowing ? `${formatAccruedPoints(settlement.terms.amount, duration, elapsed)} P` : "—"}</b></span>
+              <span className="settlement-stat"><small>진행률</small><b>{isFlowing ? `${formatProgress(progress)}%` : "—"}</b></span>
+              <span aria-hidden="true">→</span>
             </button>
           );
         })}
+        {hiddenSettlements.length > 0 && <div className="hidden-settlements">
+          <button className="hidden-toggle" onClick={() => setShowHidden((value) => !value)}>{showHidden ? "숨긴 정산 닫기" : `숨긴 정산 ${hiddenSettlements.length}건 보기`}</button>
+          {showHidden && <div className="hidden-list">
+            {hiddenSettlements.map((settlement) => (
+              <article className="hidden-settlement-row" key={settlement.id.toString()}>
+                <span className="plan-icon">{settlement.terms.serviceName.slice(0, 1)}</span>
+                <span><strong>{settlement.terms.serviceName}</strong><small>{roleFor(settlement, account)} · 취소됨</small></span>
+                <button className="button compact restore-button" onClick={() => onRestoreSettlement?.(settlement.id)}>다시 표시</button>
+              </article>
+            ))}
+          </div>}
+        </div>}
       </section>
     </>
   );

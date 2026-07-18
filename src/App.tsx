@@ -359,6 +359,16 @@ export default function App() {
     setNotice("대시보드 목록에서 숨겼습니다. 블록체인 기록은 그대로 보관됩니다.");
   }
 
+  function restoreSettlement(id: bigint) {
+    const key = id.toString();
+    setHiddenSettlementIds((current) => {
+      const next = current.filter((item) => item !== key);
+      window.localStorage.setItem("drippay.hidden-settlements", JSON.stringify(next));
+      return next;
+    });
+    setNotice("정산을 대시보드 목록에 다시 표시했습니다.");
+  }
+
   const selected = settlements.find((item) => item.id === selectedId);
   const visibleSettlements = settlements.filter((item) => !hiddenSettlementIds.includes(item.id.toString()));
   const balanceLabel = Math.floor(Number(formatUnits(balance, 18))).toLocaleString();
@@ -374,7 +384,7 @@ export default function App() {
         ) : selected ? (
           <SettlementDetail account={account} busy={busy} writeDisabled={!writesAllowed} chainNow={chainNow} settlement={selected} onBack={() => setSelectedId(undefined)} onWithdraw={(id) => void send("withdraw", [id])} onCancel={(id) => void send("cancel", [id])} onHide={hideSettlement} />
         ) : (
-          <><div className="hero-row"><div><p className="eyebrow">DASHBOARD</p><h1>안녕하세요.</h1><p>로컬 체인에 기록된 내 정산을 확인하세요.</p></div><button className="button primary" onClick={() => setDialog("choose")}>새 정산 만들기</button></div><Dashboard account={account} chainNow={chainNow} settlements={visibleSettlements} onSelectSettlement={(item) => setSelectedId(item.id)} /></>
+          <><div className="hero-row"><div><p className="eyebrow">DASHBOARD</p><h1>안녕하세요.</h1><p>로컬 체인에 기록된 내 정산을 확인하세요.</p></div><button className="button primary" onClick={() => setDialog("choose")}>새 정산 만들기</button></div><Dashboard account={account} chainNow={chainNow} settlements={visibleSettlements} hiddenSettlements={settlements.filter((item) => hiddenSettlementIds.includes(item.id.toString()))} onRestoreSettlement={restoreSettlement} onSelectSettlement={(item) => setSelectedId(item.id)} /></>
         )}
       </div>
       {dialog === "choose" && <CreateSettlementDialog onClose={() => setDialog(null)} onChooseLeader={() => setDialog("leader")} onChooseMember={() => setDialog("join")} />}

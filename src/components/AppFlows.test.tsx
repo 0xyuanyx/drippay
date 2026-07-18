@@ -320,4 +320,41 @@ describe("settlement UI flows", () => {
     await user.click(screen.getByRole("button", { name: "목록에서 숨기기" }));
     expect(onHide).toHaveBeenCalledWith(1n);
   });
+
+  it("reveals hidden settlements from the dashboard and restores them", async () => {
+    const user = userEvent.setup();
+    const onRestoreSettlement = vi.fn();
+    const leader = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+    render(
+      <Dashboard
+        account={leader}
+        settlements={[]}
+        hiddenSettlements={[{
+          id: 3n,
+          terms: {
+            inviteHash: `0x${"3".repeat(64)}`,
+            payee: leader,
+            payer: "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+            amount: 8_000n * 10n ** 18n,
+            startedAt: 100n,
+            endsAt: 200n,
+            withdrawn: 0n,
+            joined: true,
+            cancelled: true,
+            serviceName: "뮤직 패밀리",
+          },
+          earned: 0n,
+          withdrawable: 0n,
+          refundable: 0n,
+        }]}
+        onRestoreSettlement={onRestoreSettlement}
+        onSelectSettlement={vi.fn()}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "숨긴 정산 1건 보기" }));
+    expect(screen.getByText("뮤직 패밀리")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "다시 표시" }));
+    expect(onRestoreSettlement).toHaveBeenCalledWith(3n);
+  });
 });
