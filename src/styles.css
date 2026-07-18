@@ -63,6 +63,8 @@ h2 { margin: 5px 0 0; font-size: 26px; letter-spacing: -.03em; }
 .settlement-row + .settlement-row { margin-top: 10px; }
 .settlement-row > span:nth-child(2) { display: flex; flex-direction: column; gap: 5px; }
 .settlement-row small { color: #788781; }
+.settlement-row > b { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; color: #0f5d49; font-size: 13px; white-space: nowrap; }
+.settlement-row > b small { font-weight: 500; }
 .plan-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 12px; background: #e3efea; color: #003c33; font-weight: 800; }
 .dialog-backdrop { position: fixed; inset: 0; z-index: 20; display: grid; place-items: center; padding: 20px; background: rgba(6, 24, 19, .52); backdrop-filter: blur(5px); }
 .dialog { position: relative; width: min(560px, 100%); max-height: calc(100vh - 40px); overflow: auto; padding: 36px; border-radius: 20px; background: #fff; box-shadow: 0 24px 70px rgba(0, 45, 36, .24); }
@@ -97,11 +99,16 @@ dd { margin: 0; color: #003c33; font-weight: 750; }
 .detail-heading { display: flex; justify-content: space-between; align-items: start; margin-bottom: 32px; }
 .detail-heading h1 { font-size: 42px; }
 .badge { padding: 8px 12px; border-radius: 999px; background: #e5f2ed; color: #0f5d49; font-size: 12px; font-weight: 800; }
-.progress-track { height: 8px; overflow: hidden; border-radius: 99px; background: #dce7e3; }
+.progress-track { position: relative; height: 8px; overflow: hidden; border-radius: 99px; background: #dce7e3; }
 .progress-track span { display: block; height: 100%; border-radius: inherit; background: #0f5d49; }
+.progress-track.flowing::after { content: ""; position: absolute; top: 0; bottom: 0; width: 52px; border-radius: inherit; background: linear-gradient(90deg, transparent, rgba(109, 211, 162, .9), transparent); animation: drip-flow 2.4s ease-in-out infinite; }
 .progress-copy { margin: 10px 0 28px; color: #788781; font-size: 13px; text-align: right; }
+.drip-rate { margin: -18px 0 20px; color: #0f5d49; font-size: 13px; text-align: right; }
 .detail .metric-grid { margin-bottom: 24px; }
 .detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.detail-hide { margin-top: 16px; color: #6b7b76; }
+
+@keyframes drip-flow { from { left: -52px; } to { left: 100%; } }
 
 @media (max-width: 720px) {
   .topbar { height: auto; min-height: 72px; padding: 14px 20px; align-items: flex-start; }

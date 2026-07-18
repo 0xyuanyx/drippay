@@ -210,10 +210,10 @@ describe("settlement UI flows", () => {
     ).toBeDisabled();
   });
 
-  it("shows all approved financial labels on the dashboard", () => {
+  it("shows the MVP financial labels on the dashboard", () => {
     render(<Dashboard settlements={[]} onSelectSettlement={vi.fn()} />);
 
-    expect(screen.getByText("컨트랙트에 묶인 돈")).toBeInTheDocument();
+    expect(screen.getByText("DripPay 보관 금액")).toBeInTheDocument();
     expect(screen.getByText("받을 돈")).toBeInTheDocument();
     expect(screen.getByText("남은 예치금")).toBeInTheDocument();
   });
@@ -281,6 +281,43 @@ describe("settlement UI flows", () => {
       />,
     );
 
-    expect(screen.getByText("전체 기간의 50.0% 경과")).toBeInTheDocument();
+    expect(screen.getByText("전체 기간의 50.0% 경과 · 1분 40초째 흐르는 중")).toBeInTheDocument();
+  });
+
+  it("lets a cancelled settlement be hidden from the dashboard without claiming to delete it", async () => {
+    const user = userEvent.setup();
+    const onHide = vi.fn();
+    const leader = "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266";
+    render(
+      <SettlementDetail
+        account={leader}
+        chainNow={200n}
+        settlement={{
+          id: 1n,
+          terms: {
+            inviteHash: `0x${"1".repeat(64)}`,
+            payee: leader,
+            payer: leader,
+            amount: 10_000n * 10n ** 18n,
+            startedAt: 100n,
+            endsAt: 300n,
+            withdrawn: 0n,
+            joined: true,
+            cancelled: true,
+            serviceName: "뮤직 패밀리",
+          },
+          earned: 0n,
+          withdrawable: 0n,
+          refundable: 0n,
+        }}
+        onBack={vi.fn()}
+        onWithdraw={vi.fn()}
+        onCancel={vi.fn()}
+        onHide={onHide}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "목록에서 숨기기" }));
+    expect(onHide).toHaveBeenCalledWith(1n);
   });
 });

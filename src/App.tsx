@@ -73,6 +73,14 @@ export default function App() {
   const [settlements, setSettlements] = useState<SettlementView[]>([]);
   const [selectedId, setSelectedId] = useState<bigint>();
   const [createdInvite, setCreatedInvite] = useState<string>();
+  const [hiddenSettlementIds, setHiddenSettlementIds] = useState<string[]>(() => {
+    try {
+      const saved = window.localStorage.getItem("drippay.hidden-settlements");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const accountRef = useRef<Address>();
@@ -339,7 +347,20 @@ export default function App() {
     }
   }
 
+  function hideSettlement(id: bigint) {
+    const key = id.toString();
+    setHiddenSettlementIds((current) => {
+      if (current.includes(key)) return current;
+      const next = [...current, key];
+      window.localStorage.setItem("drippay.hidden-settlements", JSON.stringify(next));
+      return next;
+    });
+    setSelectedId(undefined);
+    setNotice("대시보드 목록에서 숨겼습니다. 블록체인 기록은 그대로 보관됩니다.");
+  }
+
   const selected = settlements.find((item) => item.id === selectedId);
+  const visibleSettlements = settlements.filter((item) => !hiddenSettlementIds.includes(item.id.toString()));
   const balanceLabel = Math.floor(Number(formatUnits(balance, 18))).toLocaleString();
   const writesAllowed = Boolean(account && walletChainId === HARDHAT_CHAIN_ID);
   const networkReady = !account || writesAllowed;
@@ -351,9 +372,9 @@ export default function App() {
         {!account ? (
           <section className="connect-panel"><p className="eyebrow">LOCAL MVP</p><h1>시간이 흐른 만큼만<br />정산하세요.</h1><p>MetaMask를 로컬 Hardhat 네트워크에 연결하면 데모 포인트 정산을 시작할 수 있습니다.</p><button className="button primary" onClick={connectWallet}>MetaMask 연결</button></section>
         ) : selected ? (
-          <SettlementDetail account={account} busy={busy} writeDisabled={!writesAllowed} chainNow={chainNow} settlement={selected} onBack={() => setSelectedId(undefined)} onWithdraw={(id) => void send("withdraw", [id])} onCancel={(id) => void send("cancel", [id])} />
+          <SettlementDetail account={account} busy={busy} writeDisabled={!writesAllowed} chainNow={chainNow} settlement={selected} onBack={() => setSelectedId(undefined)} onWithdraw={(id) => void send("withdraw", [id])} onCancel={(id) => void send("cancel", [id])} onHide={hideSettlement} />
         ) : (
-          <><div className="hero-row"><div><p className="eyebrow">DASHBOARD</p><h1>안녕하세요.</h1><p>로컬 체인에 기록된 내 정산을 확인하세요.</p></div><button className="button primary" onClick={() => setDialog("choose")}>새 정산 만들기</button></div><Dashboard account={account} settlements={settlements} onSelectSettlement={(item) => setSelectedId(item.id)} /></>
+          <><div className="hero-row"><div><p className="eyebrow">DASHBOARD</p><h1>안녕하세요.</h1><p>로컬 체인에 기록된 내 정산을 확인하세요.</p></div><button className="button primary" onClick={() => setDialog("choose")}>새 정산 만들기</button></div><Dashboard account={account} chainNow={chainNow} settlements={visibleSettlements} onSelectSettlement={(item) => setSelectedId(item.id)} /></>
         )}
       </div>
       {dialog === "choose" && <CreateSettlementDialog onClose={() => setDialog(null)} onChooseLeader={() => setDialog("leader")} onChooseMember={() => setDialog("join")} />}
