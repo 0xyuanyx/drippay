@@ -18,7 +18,7 @@ DripPay는 선불 포인트를 스마트컨트랙트에 보관하고, 시간이 
 
 ## 실행
 
-사전 조건: Node.js 20 이상, MetaMask.
+사전 조건: Node.js `20.19.0` 이상 또는 `22.12.0` 이상, MetaMask.
 
 ```bash
 npm install
